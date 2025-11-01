@@ -29,8 +29,39 @@ from rest_framework_simplejwt.tokens import RefreshToken
 
 
 
+@api_view(['PUT', 'DELETE'])
+@permission_classes([IsAuthenticated])
+def update(request,id):
+    try:
+        sweet = Sweets.objects.get(id=id)
+    except Sweets.DoesNotExist:
+        return Response(
+            {
+                'error':f'Sweet with id: {id} not found'
+            },
+            status=status.HTTP_404_NOT_FOUND
+        )
+    if request.method == 'PUT':
+        serializer = SweetsSerializer(sweet , data = request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(
+                serializer.data
+            )
+        return Response(serializer.errors  , status=status.HTTP_400_BAD_REQUEST)
 
 
+    if request.method == 'DELETE':
+        if not request.user.is_staff:
+            return Response(
+                {
+                    'message':'Only admins can delete sweets'
+                },
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        sweet.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 @api_view(['POST'])
