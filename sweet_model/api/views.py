@@ -10,6 +10,7 @@ from django.contrib.auth.models import User
 from django.contrib.auth.password_validation import validate_password
 from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
+from django.db import transaction
 # @api_view(['GET'])
 # def get_users(request):
     
@@ -26,6 +27,120 @@ from rest_framework_simplejwt.tokens import RefreshToken
 #         serializer.save()
 #         return Response(serializer.data, status=status.HTTP_201_CREATED)
 #     return Response(serializer.errors , status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def purchase(request, id):
+    try:
+        sweet = Sweets.objects.get(id=id)
+    except Sweets.DoesNotExist:
+        return Response(
+            {
+                'error':f'Sweet with id:{id} not found'
+            },
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    purchase_quantity = request.data.get('quantity',1)
+
+
+    if not isinstance(purchase_quantity,int) or purchase_quantity <= 0:
+        return Response(
+            {
+                'error': 'Quantity  must be a positive integer'
+            },
+            status=status.HTTP_400_BAD_REQUEST
+        )
+        
+    if sweet.quantity < purchase_quantity:
+        return Response(
+            {
+                'error':'Insufficient funds',
+                'available':sweet.quantity,
+                'requested': purchase_quantity
+            },
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    #just to make sure every process happens or it roles back to previous state before this failed transaction
+    with transaction.atomic():
+        sweet.quantity -= purchase_quantity
+        sweet.save()
+
+    serializer = SweetsSerializer(sweet)
+
+    return Response(
+        {
+            'message':'Purchase complete',
+            'purchased_quantity' :  purchase_quantity,
+            'total_cost' : float(sweet.price)*purchase_quantity,
+            'sweet' : serializer.data
+        },
+        status=status.HTTP_200_OK
+    )
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def restock(request, id):
+
+
+    if not request.user.is_staff:
+        return Response(
+            {
+                'error': 'Restock can only be done by a admin'
+            },
+            status=status.HTTP_403_FORBIDDEN
+        )
+    try:
+        sweet = Sweets.objects.get(id=id)
+    except Sweets.DoesNotExist:
+        return Response(
+            {
+                'error':f'Sweet with id:{id} not found'
+            },
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    restock_quantity = request.data.get('quantity')
+
+    if not restock_quantity:
+        return Response(
+            {
+                'error':'Quantity is required'
+            },
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+
+
+    if not isinstance(restock_quantity,int) or restock_quantity <= 0:
+        return Response(
+            {
+                'error': 'Quantity  must be a positive integer'
+            },
+            status=status.HTTP_400_BAD_REQUEST
+        )
+        
+    
+    #just to make sure every process happens or it roles back to previous state before this failed transaction
+    with transaction.atomic():
+        old_quantity = sweet.quantity
+        sweet.quantity += restock_quantity
+        sweet.save()
+
+    serializer = SweetsSerializer(sweet)
+
+    return Response(
+        {
+            'message':'Restock complete complete',
+            'previous_quantity' :  old_quantity,
+            'new_quantity':sweet.quantity,
+            'sweet' : serializer.data,
+
+        },
+        status=status.HTTP_200_OK
+    )
 
 
 
