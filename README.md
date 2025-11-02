@@ -1,7 +1,7 @@
 # Sweet Shop API
 
 A Django REST API for managing a sweet shop with user authentication, inventory management, and purchase functionality.
-
+FrontEnd at https://github.com/SrinivasSKulal/sweets-management
 ## Features
 
 - 🔐 User authentication with JWT tokens
