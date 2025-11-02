@@ -209,7 +209,7 @@ def register(request):
     except ValidationError as e:
         return Response(
             {
-                'error':list(e.message)
+                'error':list(e.messages)
             },
             status=status.HTTP_400_BAD_REQUEST
         )
